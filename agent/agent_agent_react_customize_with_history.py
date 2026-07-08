@@ -94,6 +94,7 @@ prompt = ChatPromptTemplate.from_messages(
             "system",
             "你是非常强大的助手，你可以使用各种工具来完成人类交给的问题和任务。"
         ),
+        MessagesPlaceholder(variable_name="chat_history"),
         ("user", promptTemplate),
         MessagesPlaceholder(variable_name="agent_scratchpad")
     ]
@@ -102,6 +103,8 @@ prompt = ChatPromptTemplate.from_messages(
 print(prompt)
 
 from langchain_classic.tools.render import render_text_description
+
+chat_history = []
 
 #设置工具以及工具名称
 prompt = prompt.partial(
@@ -206,4 +209,10 @@ agent = (
 from langchain_classic.agents import AgentExecutor
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-agent_executor.invoke({"input":"北京110000的天气如何？"})
+chat_history.extend(
+    [
+        HumanMessage(content="刘德华的老婆是谁？"),
+        AIMessage(content="刘德华的老婆是朱丽倩（Carol Chu）。"),
+    ]
+)
+agent_executor.invoke({"input": "刘德华老婆有演过电影吗", "chat_history": chat_history})
