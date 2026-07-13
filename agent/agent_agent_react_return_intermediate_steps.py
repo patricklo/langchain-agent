@@ -1,6 +1,7 @@
 from langchain_openai import ChatOpenAI, OpenAI
 import requests
 from langchain_classic.agents import create_react_agent,AgentExecutor,tool
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 openai_api_key = "OPENAI_API_KEY"
 openai_api_base = "https://apis.itedus.cn/v1/"
@@ -42,7 +43,7 @@ def get_weather(location: str) -> dict:
         raise Exception(f"失败接收天气信息：{response.status_code}")
 
 
-print(get_weather.invoke("110000"))
+#print(get_weather.invoke("110000"))
 
 tools = [get_word_length, get_weather]
 
@@ -63,8 +64,8 @@ promptTemplate = """尽可能的帮助用户回答任何问题。
 ```json
 {{
     "reason": string, \\ 叙述使用工具的原因
-    "action: string, \\要使用的工具，必须是{tool_names}之一
-    “action_input": string \\工具的输入
+    "action“: string, \\要使用的工具，必须是{tool_names}之一
+    "action_input": string \\工具的输入
 }}
 ```
 
@@ -85,7 +86,6 @@ promptTemplate = """尽可能的帮助用户回答任何问题。
 
 """
 
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 prompt = ChatPromptTemplate.from_messages(
     [
@@ -93,17 +93,14 @@ prompt = ChatPromptTemplate.from_messages(
             "system",
             "你是非常强大的助手，你可以使用各种工具来完成人类交给的问题和任务。"
         ),
-        MessagesPlaceholder(variable_name="chat_history"),
         ("user", promptTemplate),
         MessagesPlaceholder(variable_name="agent_scratchpad")
     ]
 )
 
-print(prompt)
+#print(prompt)
 
 from langchain_classic.tools.render import render_text_description
-
-chat_history = []
 
 #设置工具以及工具名称
 prompt = prompt.partial(
@@ -113,7 +110,7 @@ prompt = prompt.partial(
 
 
 from langchain_classic.agents.json_chat.prompt import TEMPLATE_TOOL_RESPONSE
-print(TEMPLATE_TOOL_RESPONSE)
+#print(TEMPLATE_TOOL_RESPONSE)
 
 #不使用英文版的TEMPLATE_TOOL_RESPONSE，转成中文版
 TEMPLATE_TOOL_RESPONSE = """工具响应：
@@ -206,12 +203,6 @@ agent = (
 )
 
 from langchain_classic.agents import AgentExecutor
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, return_intermediate_steps=True, handle_parsing_errors=True,)
 
-chat_history.extend(
-    [
-        HumanMessage(content="刘德华的老婆是谁？"),
-        AIMessage(content="刘德华的老婆是朱丽倩（Carol Chu）。"),
-    ]
-)
-agent_executor.invoke({"input": "刘德华老婆有演过电影吗", "chat_history": chat_history})
+print(agent_executor.invoke({"input":"北京110000的天气如何？"}))
