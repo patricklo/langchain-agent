@@ -1,4 +1,5 @@
 from langchain_classic import text_splitter
+from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI, OpenAI
 import requests
 from langchain_classic.agents import create_react_agent, AgentExecutor, tool, AgentOutputParser, LLMSingleActionAgent
@@ -18,7 +19,7 @@ from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.exceptions import OutputParserException
 
 from langchain_core.output_parsers.json import parse_json_markdown
-openai_api_key = "OPENAI_API_KEY"
+openai_api_key = "sk-key"
 openai_api_base = "https://apis.itedus.cn/v1/"
 chat = ChatOpenAI(
     api_key=openai_api_key,
@@ -138,6 +139,84 @@ class JSONAgentOutputParser(AgentOutputParser):
 output_parser = StrOutputParser()
 chain1 = prompt | llm
 
-result = chain1.invoke({"input":"小米su7的发布时间"})
-print(result)
-print(result.content)
+print("################chain1 invoke#############")
+print(chain1.invoke({"input":"小米su7的发布时间"}))
+print("################chain1 invoke end#############")
+
+promptTemplate = """使用浏览器获取的搜索内容：
+------------------
+{observation}
+------------------
+请根据浏览器的响应，回答下面的问题：
+{input}
+"""
+prompt2 = ChatPromptTemplate.from_messages(
+    [
+        ("system","你是非常强大的助手，你可以使用各种工具来完成人类交给的问题和任务。"),
+        ("user", promptTemplate)
+    ]
+)
+
+chain2 = prompt2 | llm
+
+#result = chain1.invoke({"input":"小米su7的发布时间"})
+#print(result)
+#print(result.content)
+
+
+# from langgraph.graph import END,MessageGraph
+# graph = MessageGraph()
+# graph.add_node("chain", chain1)
+# graph.add_edge("chain", END)
+# graph.set_entry_point("chain")
+# runnable1 = graph.compile()
+#from langchain_core.messages import HumanMessage
+#print(runnable1.invoke(HumanMessage("小米su7的发布时间")))
+
+def process(state):
+    print(state)
+    content = state[-1].content
+    return {"input":state[0].content, "observation": content}
+
+chain2 = process | prompt2 | llm
+
+from langgraph.graph import END,MessageGraph
+graph = MessageGraph()
+def tool(state):
+    #print(state)
+    content = state[-1].content
+    response = parse_json_markdown(content)
+    print("################### response:%s",response)
+    result = searxng_search.invoke(response["action_input"])
+    return HumanMessage(result)
+
+graph.add_node("chain1", chain1)
+graph.add_node("tool",tool)
+graph.add_node("chain2", chain2)
+# 设置开始
+graph.set_entry_point("chain1")
+
+# 设置条件的边
+def router(state):
+    print("******************** state:%s", state)
+    print("******************** \n")
+    content = state[-1].content
+    response = parse_json_markdown(content)
+    if response["action"] == "Final Answer":
+        return "end"
+    else:
+        return "tool"
+graph.add_conditional_edges("chain1", router, {
+    "tool": "tool",
+    "end":END
+})
+
+graph.add_edge("tool","chain2")
+graph.add_edge("chain2",END)
+runnable2 = graph.compile()
+# from PIL import Image as PILImage
+# import io
+# png_bytes = runnable2.get_graph().draw_png()
+# PILImage.open(io.BytesIO(png_bytes)).show()
+
+print(runnable2.invoke(HumanMessage("小米su7的发布时间")))
